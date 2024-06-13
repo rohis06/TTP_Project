@@ -1,0 +1,1050 @@
+---
+title: "MT Effects on Mental Health"
+author: "Dieu Anh Le, Rohith Raj Srinivasan"
+date: "2024-05-09"
+output:
+  html_document: default
+  word_document: default
+  pdf_document: default
+---
+```{r setup, include=FALSE}
+# Set global options
+knitr::opts_chunk$set(echo = TRUE)
+options(scipen = 999)  # Disable scientific notation
+
+# Set working directory
+# setwd("C:/Users/Dieu Anh Le/Box Sync/UC Davis/Graduate/2024 Spring Quarter/TTP 201/Project/")
+```
+
+```{r echo=FALSE, warning=FALSE, results='hide', message=FALSE}
+# library used in this project
+library(DataExplorer) # distinct()
+library(dplyr)
+library(gridExtra) # grid plot
+library(ggplot2)
+library(tidyr)
+library(patchwork) # usage:  plot1 + plot2
+library(MASS)
+library(stats)
+library(leaps)
+library(corrplot) # correlation matrix
+library(glmnet)
+library(cowplot)
+library(caret)
+
+# theme
+# color.palette <- c("#FF5733","#33FF57","#3357FF")
+color.palette <- c("#FFB98D", "#8DFFB5", "#8DB5FF")
+```
+
+## Data Overview
+```{r}
+# Data overview
+mt.data.raw <- read.csv("mxmh_survey_results.csv")
+mt.data.raw.summary <- summary(mt.data.raw)
+```
+
+## Data Preprocessing
+```{r}
+# 1. Remove Permission and Timestamp columns
+mt.data.raw <- mt.data.raw[, !(names(mt.data.raw) %in% c("Timestamp", "Permissions"))]
+for (col in names(mt.data.raw)) {
+  if (is.character(mt.data.raw[[col]])) { # Check if the column is of type character
+    mt.data.raw[[col]] <- gsub(" ", "_", mt.data.raw[[col]])
+  }
+}
+
+# 2. Checking for duplicates
+mt.data <- mt.data.raw %>% distinct()
+# dup.data <- setdiff(mt.data.raw, mt.data)
+# Replace periods with underscores in column names
+names(mt.data) <- sub("\\.$", "", names(mt.data))
+names(mt.data) <- gsub("\\.{1,2}", "_", names(mt.data))
+
+# 3. Identifying NA's
+missing.matrix <- is.na(mt.data) | (mt.data == "")
+missing.df <- as.data.frame(missing.matrix)
+missing.df$row <- rownames(mt.data)
+
+true_counts <- missing.df %>%
+  summarise(across(everything(), ~ sum(. == TRUE)))
+
+missing.df <- tidyr::pivot_longer(missing.df, -row, names_to = "column", values_to = "missing")
+
+
+
+
+heatmap <- ggplot(missing.df, aes(x = column, y = as.numeric(row), fill = missing)) +
+  geom_tile() +
+  scale_fill_manual(values = c("white", "red"), na.value = "red", labels = c("Not Missing", "Missing")) +
+  labs(x = "Variables", y = "Row Index", title = "Heatmap of Missing Values") +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5))
+
+heatmap
+
+# 4. Regress BPM~Fav.Genre
+# Assign scoring to the frequency response
+category.columns <- grep("^Frequency", names(mt.data), value = TRUE)
+
+
+for (col in category.columns) {
+  mt.data[[col]] <- factor(mt.data[[col]], 
+                           levels = c("Never", "Rarely", "Sometimes", "Very_frequently"))
+  
+  # change from factors to discrete numeric
+  mt.data[[col]] <- as.numeric(mt.data[[col]])
+}
+
+mt.data[["Fav_genre"]] <- factor(mt.data[["Fav_genre"]])
+
+# Drop NA's in other columns (non BPM)
+missing.df <- missing.df[missing.df$missing == TRUE, ]
+na.cols <- unique(missing.df$column)
+
+missing.count.df <- missing.df %>%
+  group_by(column) %>%
+  summarise(Count = n()) %>%
+  ungroup()
+
+# Only BPM in missing.count.df has high count of NA values, so we'll drop the NA from the other columns and try to fill in NA of the BPM column through prediction
+na.cols <- na.cols[na.cols != "BPM"]
+print(na.cols)
+
+mt.data[na.cols] <- lapply(mt.data[na.cols], function(x) {
+  x[x == ""] <- NA
+  return(x)
+})
+
+mt.data <- mt.data %>%
+  filter_at(vars(all_of(na.cols)), all_vars(!is.na(.)))
+
+### 102 entries after removing NA data based on the code belows ###
+# missing.df.check <- as.data.frame(is.na(mt.data) | (mt.data == ""))
+# missing.df.check$row <- rownames(mt.data)
+# missing.df.check <- tidyr::pivot_longer(missing.df.check, -row, names_to = "column", values_to = "missing")
+# missing.df.check <- missing.df.check[missing.df.check$missing == TRUE,]
+
+char.cols <- c("Primary_streaming_service", "While_working", "Instrumentalist", "Composer", "Exploratory", "Foreign_languages", "Music_effects")
+
+for (col in char.cols) {
+  col.val <- unique(mt.data[[col]])
+  mt.data[[col]] <- factor(mt.data[[col]], levels = col.val)
+}
+```
+
+``` {r results='hide'}
+
+# Apply regression to fill in NAs for BPM
+# Removing BPM outliers
+
+max.bpm <- max(mt.data$BPM, na.rm = TRUE)
+mt.data <- mt.data[mt.data$BPM != max.bpm | is.na(mt.data$BPM), ]
+
+max.bpm <- max(mt.data$BPM, na.rm = TRUE)
+mt.data <- mt.data[mt.data$BPM != max.bpm | is.na(mt.data$BPM), ]
+
+bpm.na <- mt.data[is.na(mt.data[["BPM"]]), ]
+bpm.not.na <- mt.data[!is.na(mt.data[["BPM"]]), ]
+
+bpm.lm <- lm(BPM~., data=bpm.not.na)
+bpm.model <- stepAIC(bpm.lm, direction="both", trace = FALSE)
+bpm.na$BPM <- predict(bpm.model, newdata = bpm.na)
+
+mt.data$BPM[is.na(mt.data[["BPM"]])] <- bpm.na$BPM
+
+missing.bpm.check <- as.data.frame(is.na(mt.data) | (mt.data == ""))
+missing.bpm.check$row <- rownames(mt.data)
+missing.bpm.check <- tidyr::pivot_longer(missing.bpm.check, -row, names_to = "column", values_to = "missing")
+missing.bpm.check <- missing.bpm.check[missing.bpm.check$missing == TRUE,]
+```
+
+
+
+``` {r}
+DV.histograms <- list()
+DV.charts <- list()
+# Loop through each column in the dataset
+for (col.name in names(mt.data.raw)) {
+  if (is.numeric(mt.data.raw[[col.name]])) {
+    gg <- ggplot(mt.data.raw, aes(x = !!sym(col.name))) +
+      geom_histogram(fill = "skyblue", color = "black") +
+      labs(x = col.name, y = "Frequency") + 
+      theme(plot.margin = unit(c(0, 0, 0, 0), "cm"))
+    DV.histograms[[col.name]] <- gg
+  } else {
+    if (grepl("^Frequency", col.name)) next
+    gg<- ggplot(mt.data.raw, aes_string(x = col.name)) +
+      geom_bar(fill = "skyblue") +
+      labs(x = col.name, y = "Count") + 
+      theme(plot.margin = unit(c(0, 0, 0, 0), "cm")) +
+      theme(axis.text.x = element_text(angle = 45, hjust = 1))
+    DV.charts[[col.name]] <- gg
+  }
+}
+
+DV.histograms.cleaned <- list()
+DV.charts.cleaned <- list()
+# Loop through each column in the dataset
+for (col.name in names(mt.data)) {
+  if (is.numeric(mt.data[[col.name]])) {
+    gg <- ggplot(mt.data, aes(x = !!sym(col.name))) +
+      geom_histogram(fill = "skyblue", color = "black") +
+      labs(x = col.name, y = "Frequency") + 
+      theme(plot.margin = unit(c(0, 0, 0, 0), "cm"))
+    DV.histograms.cleaned[[col.name]] <- gg
+  } else {
+    if (grepl("^Frequency", col.name)) next
+    gg<- ggplot(mt.data, aes_string(x = col.name)) +
+      geom_bar(fill = "skyblue") +
+      labs(x = col.name, y = "Count") + 
+      theme(plot.margin = unit(c(0, 0, 0, 0), "cm")) +
+      theme(axis.text.x = element_text(angle = 45, hjust = 1))
+    DV.charts.cleaned[[col.name]] <- gg
+  }
+}
+
+combined.histograms <- wrap_plots(DV.histograms, ncol = 3)
+# combined.charts <- wrap_plots(DV.charts, ncol = 1) 
+combined.histograms.cleaned <- wrap_plots(DV.histograms.cleaned, ncol = 3)
+# combined.charts.cleaned <- wrap_plots(DV.charts.cleaned, ncol = 1) 
+
+print(combined.histograms)
+print(DV.charts)
+print(combined.histograms.cleaned)
+print(DV.charts.cleaned)
+
+
+# Correlation matrix
+numeric.df <- mt.data %>% select_if(is.numeric)
+corrplot(cor(numeric.df), method="circle", type = "upper", tl.cex = 0.7)
+
+write.csv(mt.data, "mt_data_cleaned.csv", row.names = FALSE)
+
+mt.data.2 <- read.csv("mt_data_feature_selection.csv")
+```
+
+* No duplicated data found
+* Age has 0.14% values are NA, while BPM has 14.54% NA's values (moderate level)
+* Some contains "" values instead NA so we fill all "" with NA's values before continue
+* Plot heatmap of all missing values
+* Plot histogram of BPM before and after removing the max value, then remove BPM > 600 (3 histograms total), justify that we believe these are typos
+* Removed the two max values for BPM
+
+## Comparative Analysis: effects of making music
+### Hypothesis 1: Besides streaming music, is “making music” associated with lower levels of mental health conditions?
+
+T-test: 2 test for each of the 4 mental healths condition (composer vs instrumentalist)
+Linear Regression: 
+
+* Dependent: Music.effects, Anxiety, Depression, Insomnia, OCD
+* Independent: Age, Instrumentalist, Composer
+```{r}
+mt.data.long <- pivot_longer(mt.data, cols = c(Anxiety, Depression, Insomnia, OCD),
+                             names_to = "variables", values_to = "levels")
+
+composer.boxplot <- ggplot(mt.data.long, aes(x = Composer, y = levels, fill = variables)) +
+  geom_boxplot(position = position_dodge(width = 0.8)) +
+  labs(x = "Composer",
+       y = "Self-reported Levels") +
+  theme(
+    legend.box = "horizontal",
+    legend.direction = "horizontal",
+    plot.title = element_text(hjust = 0.5, size = 12),
+    axis.title.x = element_text(size = 8),     
+    axis.title.y = element_text(size = 8),     
+    legend.title = element_text(size = 8),     
+    legend.text = element_text(size = 8)
+  ) 
+
+instrumentalist.boxplot <- ggplot(mt.data.long, aes(x = Instrumentalist, y = levels, fill = variables)) +
+  geom_boxplot(position = position_dodge(width = 0.8)) +
+  labs(x = "Instrumentalist",
+       y = "Self-reported Levels") +
+  theme(
+    legend.box = "horizontal",
+    legend.direction = "horizontal",
+    plot.title = element_text(hjust = 0.5, size = 12),
+    axis.title.x = element_text(size = 8),     
+    axis.title.y = element_text(size = 8),     
+    legend.title = element_text(size = 8),     
+    legend.text = element_text(size = 8)
+  ) 
+
+composer.boxplot + instrumentalist.boxplot +
+  plot_layout(guides = 'collect') + 
+  plot_annotation(title = "Boxplots of Mental Well-being", 
+                  theme = theme(legend.position = "top", 
+                                legend.direction = "horizontal",
+                                plot.title = element_text(hjust = 0.5, size = 14)),
+                  )
+```
+
+```{r}
+anxiety.boxplot <- ggplot(mt.data, aes(x = Composer, y = Anxiety, fill = Instrumentalist)) +
+  geom_boxplot(position = position_dodge(width = 0.8)) +
+  labs(title = "Anxiety",
+       x = "Composer",
+       y = "Anxiety Levels") +
+  theme(
+    legend.direction = "vertical",
+    plot.title = element_text(hjust = 0.5, size = 12),
+    axis.title.x = element_text(size = 8),     
+    axis.title.y = element_text(size = 8),     
+    legend.title = element_text(size = 8),     
+    legend.text = element_text(size = 8)
+  )       
+
+depression.boxplot <- ggplot(mt.data, aes(x = Composer, y = Depression, fill = Instrumentalist)) +
+  geom_boxplot(position = position_dodge(width = 0.8)) +
+  labs(title = "Depression",
+       x = "Composer",
+       y = "Depression Levels") +
+  theme(
+    plot.title = element_text(hjust = 0.5, size = 12),
+    axis.title.x = element_text(size = 8),     
+    axis.title.y = element_text(size = 8),     
+    legend.title = element_text(size = 8),     
+    legend.text = element_text(size = 8)
+  )  
+
+insomnia.boxplot <- ggplot(mt.data, aes(x = Composer, y = Insomnia, fill = Instrumentalist)) +
+  geom_boxplot(position = position_dodge(width = 0.8)) +
+  labs(title = "Insomnia",
+       x = "Composer",
+       y = "Insomnia Levels") +
+  theme(
+    plot.title = element_text(hjust = 0.5, size = 12),
+    axis.title.x = element_text(size = 8),     
+    axis.title.y = element_text(size = 8),     
+    legend.title = element_text(size = 8),     
+    legend.text = element_text(size = 8)
+  )
+
+ocd.boxplot <- ggplot(mt.data, aes(x = Composer, y = OCD, fill = Instrumentalist)) +
+  geom_boxplot(position = position_dodge(width = 0.8)) +
+  labs(title = "OCD",
+       x = "Composer",
+       y = "OCD Levels") +
+  theme(
+    plot.title = element_text(hjust = 0.5, size = 12),
+    axis.title.x = element_text(size = 8),     
+    axis.title.y = element_text(size = 8),     
+    legend.title = element_text(size = 8),     
+    legend.text = element_text(size = 8)
+  )
+
+# anxiety.boxplot + depression.boxplot + insomnia.boxplot + ocd.boxplot
+anxiety.boxplot + depression.boxplot + insomnia.boxplot + ocd.boxplot + 
+  plot_layout(guides = 'collect') + 
+  plot_annotation(title = "Boxplots of Mental Well-being", 
+                  theme = theme(legend.position = "right", 
+                                plot.title = element_text(hjust = 0.5, size = 14)),
+                  )
+```
+
+From the plots, there seem to be no difference
+
+```{r}
+# H0: There's no differences in anxiety/depression/insomnia/ocd self-reported level between Composer and Non-Composer
+# HA: There's differences in mean
+
+composer <- data.frame(is_composer = mt.data$Composer[mt.data$Composer == "Yes"],
+                       anxiety = mt.data$Anxiety[mt.data$Composer == "Yes"],
+                       depression = mt.data$Depression[mt.data$Composer == "Yes"],
+                       insomnia = mt.data$Insomnia[mt.data$Composer == "Yes"],
+                       ocd = mt.data$OCD[mt.data$Composer == "Yes"])
+
+not_composer <- data.frame(is_composer = mt.data$Composer[mt.data$Composer == "No"],
+                       anxiety = mt.data$Anxiety[mt.data$Composer == "No"],
+                       depression = mt.data$Depression[mt.data$Composer == "No"],
+                       insomnia = mt.data$Insomnia[mt.data$Composer == "No"],
+                       ocd = mt.data$OCD[mt.data$Composer == "No"])
+
+anxiety_composer_t <- t.test(composer$anxiety, not_composer$anxiety)
+depression_composer_t <- t.test(composer$depression, not_composer$depression)
+insomnia_composer_t <- t.test(composer$insomnia, not_composer$insomnia)
+ocd_composer_t <- t.test(composer$ocd, not_composer$ocd)
+
+anxiety_composer_t
+depression_composer_t 
+insomnia_composer_t 
+ocd_composer_t 
+
+
+
+
+# H0: There's no differences in anxiety/depression/insomnia/ocd self-reported level between Instrumentalist and Non-Instrumentalist
+# HA: There's differences in mean
+
+instrumentalist <- data.frame(is_instrumentalist = mt.data$Instrumentalist[mt.data$Instrumentalist == "Yes"],
+                              anxiety = mt.data$Anxiety[mt.data$Instrumentalist == "Yes"],
+                              depression = mt.data$Depression[mt.data$Instrumentalist == "Yes"],
+                              insomnia = mt.data$Insomnia[mt.data$Instrumentalist == "Yes"],
+                              ocd = mt.data$OCD[mt.data$Instrumentalist == "Yes"])
+
+not_instrumentalist <- data.frame(is_instrumentalist = mt.data$Instrumentalist[mt.data$Instrumentalist == "No"],
+                                  anxiety = mt.data$Anxiety[mt.data$Instrumentalist == "No"],
+                                  depression = mt.data$Depression[mt.data$Instrumentalist == "No"],
+                                  insomnia = mt.data$Insomnia[mt.data$Instrumentalist == "No"],
+                                  ocd = mt.data$OCD[mt.data$Instrumentalist == "No"])
+
+anxiety_instrumentalist_t <- t.test(instrumentalist$anxiety, not_instrumentalist$anxiety)
+depression_instrumentalist_t <- t.test(instrumentalist$depression, not_instrumentalist$depression)
+insomnia_instrumentalist_t <- t.test(instrumentalist$insomnia, not_instrumentalist$insomnia)
+ocd_instrumentalist_t <- t.test(instrumentalist$ocd, not_instrumentalist$ocd)
+
+anxiety_instrumentalist_t
+depression_instrumentalist_t 
+insomnia_instrumentalist_t 
+ocd_instrumentalist_t 
+```
+
+```{r}
+# H0: There's no differences in anxiety/depression/insomnia/ocd self-reported level across 4 groups of musicians
+# HA: There's differences in mean
+
+mt.data$group <- ifelse(mt.data$Instrumentalist == "Yes" & mt.data$Composer == "Yes", 
+                         "IC", ifelse(mt.data$Instrumentalist == "Yes" & mt.data$Composer == "No",
+                                      "INC",
+                                      ifelse(mt.data$Instrumentalist == "No" & mt.data$Composer == "Yes",
+                                             "NIC", "NINC"))) 
+
+# ANOVA test
+anxiety_lm <- lm(Anxiety ~ Instrumentalist + Composer + Instrumentalist*Composer, data = mt.data)
+anxiety_aov <- anova(anxiety_lm)
+
+depression_lm <- lm(Depression ~ Instrumentalist + Composer + Instrumentalist*Composer, data = mt.data)
+depression_aov <- anova(depression_lm)
+
+insomnia_lm <- lm(Insomnia ~ Instrumentalist + Composer + Instrumentalist*Composer, data = mt.data)
+insomnia_aov <- anova(insomnia_lm)
+
+ocd_lm <- lm(OCD ~ Instrumentalist + Composer + Instrumentalist*Composer, data = mt.data)
+ocd_aov <- anova(ocd_lm)
+
+anxiety_aov
+depression_aov
+insomnia_aov
+ocd_aov
+
+TukeyHSD(aov(Anxiety ~ group, data = mt.data))
+TukeyHSD(aov(Depression ~ group, data = mt.data))
+TukeyHSD(aov(Insomnia ~ group, data = mt.data))
+TukeyHSD(aov(OCD ~ group, data = mt.data))
+```
+
+```{r}
+# Chi-Squared Tests
+musician_table <- table(mt.data$Composer, mt.data$Instrumentalist)
+chisq.test(musician_table)
+```
+
+* Large p-value, can reject H0 and claim that there is significant association between Composer and Instrumentalist
+
+## Linear Regression: What is the relationship between individual characteristics and mental well-being?
+
+### __Hypothesis 2__: 
+
+Dependent Variable: All
+Independent Variable: Anxiety, Depression, Insomnia, OCD
+
+Whether upbeat associated with higher/lower mental health conditions
+
+```{r}
+set.seed(123)  # for reproducibility
+
+# List of response variables
+response.var <- c("Anxiety", "Depression", "Insomnia", "OCD")
+explanatory.var <- names(mt.data)[!(names(mt.data) %in% c(response.var, "group", "Music_effects"))]
+
+# Extract all levels from factor variables
+all.levels <- c()
+for (col in names(mt.data)) {
+  if (col == "Fav_genre") next
+  if (is.factor(mt.data[[col]])) {
+    all.levels <- c(all.levels, levels(mt.data[[col]]))
+  }
+}
+all.levels <- unique(all.levels)
+
+# Function to clean categorical variables
+clean_categorical <- function(variables) {
+  temp <- variables[variables != "(Intercept)"]
+  result <- gsub(paste(all.levels, collapse="|"), "", temp)
+  
+  index <- startsWith(result, "Fav_genre")
+  result[index] <- "Fav_genre"
+  return(unique(result))
+}
+
+model_storage <- list()
+mse_storage <- list()
+k = 10
+# Loop through each response variable
+for (response in response.var) {
+  train.control <- trainControl(method="cv", number = k)
+  null.model <- lm(as.formula(paste(response, "~1")), data = mt.data)
+  full.formula <- as.formula(paste(response, "~", paste(explanatory.var, collapse = " + ")))
+  full.formula
+  full.model <- train(full.formula, data = mt.data, 
+                      method = "lm", trControl = train.control)
+  
+  # Best AIC model
+  AIC.model <- stepAIC(null.model, direction = "both", trace = FALSE,
+                       scope = list(lower = null.model, upper = full.model))
+
+  # Regsubset selection
+  subset.model <- regsubsets(full.formula, data = mt.data, method = "forward")
+  
+  # Best BIC model
+  best.BIC.model <- which.min(summary(subset.model)$bic)
+  selected.BIC.variables <- names(coef(subset.model, id = best.BIC.model))
+  cleaned.BIC.vars <- clean_categorical(selected.BIC.variables)
+  BIC.formula <- as.formula(paste(response, "~", paste(cleaned.BIC.vars, collapse = " + ")))
+  BIC.model <- lm(BIC.formula, data = mt.data)
+  
+  # Best Cp model
+  best.Cp.model <- which.min(summary(subset.model)$cp)
+  selected.Cp.variables <- names(coef(subset.model, id = best.Cp.model))
+  cleaned.Cp.vars <- clean_categorical(selected.Cp.variables)
+  Cp.formula <- as.formula(paste(response, "~", paste(cleaned.Cp.vars, collapse = " + ")))
+  Cp.model <- lm(Cp.formula, data = mt.data)
+
+
+  # Best Adjusted R2 model
+  best.adjr2.model <- which.min(summary(subset.model)$adjr2)
+  selected.adjr2.variables <- names(coef(subset.model, id = best.adjr2.model))
+  cleaned.adjr2.vars <- clean_categorical(selected.adjr2.variables)
+  adjr2.formula <- as.formula(paste(response, "~", paste(cleaned.adjr2.vars, collapse = " + ")))
+  adjr2.model <- lm(adjr2.formula, data = mt.data)
+
+  # Store models in the list under each response variable name
+  model_storage[[response]] <- list(
+    AIC_model = AIC.model,
+    BIC_model = BIC.model,
+    Cp_model = Cp.model,
+    AdjR2_model = adjr2.model
+  )
+}
+
+pdf("stepwise_mse_plots.pdf", width = 12, height = 12)
+for (response in response.var) {
+  # AIC Model
+  res_df <- data.frame(Residuals = residuals(model_storage[[response]][["AIC_model"]]))
+  aic.p <- ggplot(res_df, aes(x = 1:nrow(res_df), y = Residuals)) +
+    geom_point() +
+    geom_smooth(method = "loess", col = "blue") +
+    geom_hline(yintercept = 0, color = "red", linetype = "dashed") +
+    labs(title = paste("Residuals for", response, "- AIC Model"))
+
+  # BIC Model
+  res_df <- data.frame(Residuals = residuals(model_storage[[response]][["BIC_model"]]))
+  bic.p <- ggplot(res_df, aes(x = 1:nrow(res_df), y = Residuals)) +
+    geom_point() +
+    geom_smooth(method = "loess", col = "blue") +
+    geom_hline(yintercept = 0, color = "red", linetype = "dashed") +
+    labs(title = paste("Residuals for", response, "- BIC Model"))
+  
+  # BIC Model
+  res_df <- data.frame(Residuals = residuals(model_storage[[response]][["Cp_model"]]))
+  cp.p <- ggplot(res_df, aes(x = 1:nrow(res_df), y = Residuals)) +
+    geom_point() +
+    geom_smooth(method = "loess", col = "blue") +
+    geom_hline(yintercept = 0, color = "red", linetype = "dashed") +
+    labs(title = paste("Residuals for", response, "- Cp Model"))
+  
+  # AdjR2 Model
+  res_df <- data.frame(Residuals = residuals(model_storage[[response]][["AdjR2_model"]]))
+  adjr2.p <- ggplot(res_df, aes(x = 1:nrow(res_df), y = Residuals)) +
+    geom_point() +
+    geom_smooth(method = "loess", col = "blue") +
+    geom_hline(yintercept = 0, color = "red", linetype = "dashed") +
+    labs(title = paste("Residuals for", response, "- AdjR2 Model"))
+  
+  print(aic.p + bic.p + cp.p + adjr2.p)
+}
+dev.off()
+
+extract_metrics <- function(model) {
+  residuals <- resid(model)
+  rmse <- sqrt(mean(residuals^2))
+  
+  summary_model <- summary(model)
+  adj_r2 <- summary_model$adj.r.squared
+  r2 <- summary_model$r.squared
+  f_stat <- summary_model$fstatistic["value"]
+  f_stat_p_value <- summary_model$fstatistic["p.value"]
+  
+  model_formula <- as.character(formula(model))
+  
+  c(RMSE = rmse, Adjusted_R2 = adj_r2, R2 = r2, 
+    F_Statistic = f_stat, F_p_val = f_stat_p_value, 
+    formula = model_formula)
+}
+
+all_metrics <- list()
+
+for (response in names(model_storage)) {
+  for (model_type in names(model_storage[[response]])) {
+    model <- model_storage[[response]][[model_type]]
+    metrics <- extract_metrics(model)
+    
+    all_metrics[[paste(response, model_type, sep = "_")]] <- metrics
+  }
+}
+
+categorical.metrics <- do.call(rbind, lapply(all_metrics, function(x) as.data.frame(t(x))))
+rownames(categorical.metrics) <- names(all_metrics)
+
+# Display the dataframe
+print(categorical.metrics)
+
+write.csv(categorical.metrics, "stepwise_models.csv", row.names = TRUE)
+
+```
+
+```{r}
+# Convert DF to numeric
+mt.numeric <- mt.data[, names(mt.data) != "group"]
+
+for (col in seq_along(mt.numeric)) {
+  if (names(mt.numeric)[col] %in% c("Fav_genre", "Primary_streaming_service") ) next
+  if (is.factor(mt.numeric[[col]])) {
+    current_levels <- levels(mt.numeric[[col]])
+    if (setequal(current_levels, c("Yes", "No"))) {
+        mt.numeric[[col]] <- as.numeric(mt.numeric[[col]] == "Yes")
+    } else if (setequal(current_levels, c("Never", "Rarely", "Sometimes", "Very_frequently"))) {
+        mt.numeric[[col]] <- as.numeric((mt.numeric[[col]]))
+    } else if (setequal(current_levels, c("Worsen", "No_effect", "Improve"))) {
+        levels_conversion <- setNames(-1:1, c("Worsen", "No_effect", "Improve"))
+        mt.numeric[[col]] <- as.numeric(levels_conversion[as.character(mt.numeric[[col]])])
+    }
+  }
+}
+
+genre.dummies <- model.matrix(~ Fav_genre - 1, data = mt.numeric)
+mt.numeric <- cbind(mt.numeric[, !names(mt.numeric) %in% "Fav_genre"], genre.dummies)
+
+streaming.dummies <- model.matrix(~ Primary_streaming_service - 1, data = mt.numeric)
+mt.numeric <- cbind(mt.numeric[, !names(mt.numeric) %in% "Primary_streaming_service"], streaming.dummies)
+
+### USE MT.NUMERIC FOR THE REST OF THIS!!! ###
+train.data.2 <- mt.numeric
+test.data.2 <- mt.numeric
+explanatory.data <- as.matrix(train.data.2[, !colnames(train.data.2) %in% response.var])
+
+
+model.types <- list("ridge", "lasso", "elastic_net")
+regularization.models <- list()
+results <- list()
+
+for (var in response.var) {
+  results[[var]] <- list()
+  response <- train.data.2[, var]
+  
+  all.cv.model <- c()
+  all.best.model <- c()
+  all.min.lambda <- c()
+  all.min.alpha <- c()
+  
+  cv.model <- ''
+  best.model <- ''
+  best.lambda <- 0
+  best.alpha <- 0
+  
+  for (m in model.types) {
+    #1. model fitting
+    if (m == "ridge") {
+      cv.model <- cv.glmnet(x=explanatory.data, y=response, alpha=0)
+      best.model <- glmnet(x=explanatory.data, y=response, alpha=0, lambda=cv.model$lambda.min)
+      best.alpha = 0
+
+    } else if (m == "lasso") {
+      cv.model <- cv.glmnet(x=explanatory.data, y=response, alpha=1)
+      best.model <- glmnet(x=explanatory.data, y=response, alpha=1, lambda=cv.model$lambda.min)
+      best.alpha = 1
+      
+    } else { # elastic net
+      train.control <- trainControl(method="repeatedcv", number=5, repeats=5, search="random", verboseIter=TRUE)
+      formula.string <- paste(var,"~", paste(explanatory.var, collapse="+"))
+      en.best <- train(formula(formula.string), 
+                       data=mt.data, 
+                       method="glmnet", 
+                       preProcess=c("center", "scale"), 
+                       tuneLength=25, 
+                       trControl=train.control)
+      best.alpha <- en.best$bestTune$alpha
+      en.lambda <- en.best$bestTune$lambda
+      cv.model <- cv.glmnet(x=explanatory.data, y=response, alpha=best.alpha)
+      best.lambda <- cv.model$lambda.min
+      best.model <- glmnet(x=explanatory.data, y=response, alpha=best.alpha, lambda=best.lambda)
+    }
+    
+    # 2. mse plot
+    mse.p <- ggplot(data.frame(lambda = cv.model$lambda, cvm = cv.model$cvm, cvsd = cv.model$cvsd), 
+                       aes(x = log(lambda), y = cvm)) +
+        geom_line(color = "blue") +
+        geom_ribbon(aes(ymin = cvm - cvsd, ymax = cvm + cvsd), alpha = 0.2) +
+        labs(title = paste(m, "Regression MSE for", var),
+             x = "Log(Lambda)", y = "Mean Squared Error",
+             subtitle = "Shaded area represents one standard deviation") +
+        theme_minimal()
+    
+    # 3. coefs plot
+    coefs <- coef(cv.model$glmnet.fit, s = cv.model$lambda, exact = TRUE)
+    coefs.matrix <- as.matrix(coefs[-1, , drop = FALSE])
+    coefs.df <- as.data.frame(coefs.matrix)
+    coefs.df <- data.frame(lambda = log(cv.model$lambda), t(as.matrix(coefs)))
+    coefs.df.long <- reshape2::melt(coefs.df, id.vars = "lambda", variable.name = "Variable", value.name = "Coefficient")
+    coefs.df.long <- coefs.df.long[coefs.df.long$Variable != 'X.Intercept.',]
+    
+    coefs.p <- ggplot(coefs.df.long, aes(x = lambda, y = Coefficient, color = Variable)) +
+        geom_line() +
+        labs(title = paste(m, "Coefficient Values for", var),
+             x = "Log(Lambda)",
+             y = "Coefficient Value",
+             color = "Variable") +
+        theme_minimal() 
+    
+    legend <- get_legend(coefs.p)
+    coefs.p + theme(legend.position = "none")
+    ggsave(paste(m, "_legend_", var, ".png"), legend, width = 12, height = 6)
+
+    results[[var]][[m]] <- list(cv_model = cv.model,
+                                best_model = best.model,
+                                min_mse = min(cv.model$cvm),
+                                avg_mse = mean(cv.model$cvm),
+                                best_alpha = best.alpha, 
+                                best_lambda = best.lambda,
+                                coefs_plot = coefs.p,
+                                coefficients = coefs.matrix,
+                                mse_plot = mse.p,
+                                coefs_plot = coefs.p)
+    
+  } # endfor model_types
+} # endfor response.var
+
+
+
+
+# Extracing MSE and Coefficients into dataframes
+regularization.mse <- data.frame()
+
+for (var in response.var) {
+  for (model in model.types) {
+    model_data <- results[[var]][[model]]
+    temp_df <- data.frame(
+      Variable = var,
+      Model_Type = model,
+      Min_MSE = model_data$min_mse,
+      Avg_MSE = model_data$avg_mse,
+      Best_Alpha = model_data$best_alpha,
+      Best_Lambda = model_data$best_lambda
+    )
+    
+    regularization.mse <- rbind(regularization.mse, temp_df)
+  }
+}
+
+
+
+regularization.coefs <- data.frame(Variable = character(),
+                                Model = character(),
+                                CoefficientName = character(),
+                                CoefficientValue = numeric(),
+                                stringsAsFactors = FALSE)
+
+for (var in response.var) {
+  for (model in model.types) {
+    best_model <- results[[var]][[model]]$best_model
+    coefs <- coef(best_model, s = "lambda.min")
+    
+    coefs_vector <- as.numeric(coefs[-1,])
+    coef_names <- rownames(coefs)[-1] 
+
+    non_zero_indices <- which(coefs_vector != 0)
+    non_zero_coef_values <- coefs_vector[non_zero_indices]
+    non_zero_coef_names <- coef_names[non_zero_indices]
+
+    temp_df <- data.frame(
+      Variable = rep(var, length(non_zero_coef_values)),
+      Model = rep(model, length(non_zero_coef_values)),
+      CoefficientName = non_zero_coef_names,
+      CoefficientValue = non_zero_coef_values,
+      stringsAsFactors = FALSE 
+    )
+    
+    regularization.coefs <- rbind(regularization.coefs, temp_df)
+  }
+}
+
+# Review the final structured data frame
+write.csv(regularization.mse, "regularization_mse.csv")
+write.csv(regularization.coefs, "regularization_models_coefficients.csv")
+```
+
+
+```{r}
+# Displaying plots
+pdf("regularization_plots.pdf", width = 8, height = 6)
+for (var in response.var) {
+  for (model in model.types) {
+    mse_plot <- results[[var]][[model]]$mse_plot + theme(legend.position = "none")
+    coefs_plot <- results[[var]][[model]]$coefs_plot + theme(legend.position = "none")
+    combined_plot <- mse_plot + coefs_plot + plot_layout(ncol = 2)
+    print(combined_plot)
+  }
+}
+dev.off()
+```
+
+
+```{r}
+# Displaying plots
+pdf("regularization_plots.pdf", width = 8, height = 6)
+for (var in response.var) {
+  for (model in model.types) {
+    mse_plot <- results[[var]][[model]]$mse_plot + theme(legend.position = "none")
+    coefs_plot <- results[[var]][[model]]$coefs_plot + theme(legend.position = "none")
+    combined_plot <- mse_plot + coefs_plot + plot_layout(ncol = 2)
+    print(combined_plot)
+  }
+}
+dev.off()
+```
+
+```{r}
+# Computing MSE
+# model.types contains name of all regularization models
+stepwise.types <- list("AIC_model", "BIC_model", "Cp_model", "AdjR2_model")
+
+set.seed(123)
+model_mse <- list()
+average_mse <- list()
+
+for (v in response.var) {
+  
+  folds <- createFolds(mt.numeric[[v]], k = 10, list = TRUE, returnTrain = FALSE)
+  for (i in 1:k) {
+    test_indices <- folds[[i]]
+    train_indices <- setdiff(1:nrow(mt.numeric), test_indices)
+    
+    test_set <- mt.data[test_indices, ]
+    test_set <- test_set[!names(test_set) %in% response.var]
+    
+    test_set_2 <- mt.numeric[test_indices, ]
+    test_set_2 <- test_set_2[!names(test_set_2) %in% response.var]
+  
+    for (s in stepwise.types) {
+      prediction <- predict(model_storage[[v]][[s]], newdata = test_set)
+      actual <- mt.data[[v]][test_indices]
+      mse <- mean((actual - prediction)^2)
+  
+      model_mse[[s]][i] <- mse
+    }
+  
+    for (m in model.types) {
+      predictions <- predict(results[[v]][[m]]$best_model, newx = as.matrix(test_set_2))
+      actual <- mt.numeric[[v]][test_indices]
+      mse <- mean((actual - predictions)^2)
+      model_mse[[m]][i] <- mse
+    }
+
+  }
+  
+  average_mse[[v]] <- sapply(model_mse, mean)
+  
+}
+
+compare.mse.df <- data.frame(
+  Variable = character(),
+  Model = character(),
+  MSE = numeric()
+)
+
+for (v in response.var) {
+  for (model_name in names(average_mse[[v]])) {
+    compare.mse.df <- rbind(compare.mse.df, data.frame(
+      Variable = v,
+      Model = model_name,
+      MSE = average_mse[[v]][[model_name]],
+      stringsAsFactors = FALSE
+    ))
+  }
+}
+
+write.csv(compare.mse.df, "all_selection_mse.csv")
+
+```
+
+```{r}
+# Print out best model for each response variable based on test.MSE and justification
+# Stepwise: model_storage[[var]][[model]]
+# Regularization: results[[var]][[model]]
+
+# Save all models
+sink("all_selection_outputs.txt")
+for (var in response.var) {
+  for (m in stepwise.types) {
+    print(summary(model_storage[[var]][[m]]))
+  }
+  
+  for (m in model.types) {
+    print(coef(results[[var]][[m]]$best_model))
+  }
+}
+sink()
+
+sink("all_best_models.txt")
+for (var in response.var) {
+  print(summary(model_storage[[var]][["Cp_model"]]))
+}
+sink()
+
+
+# Best model with lowest average MSE
+anxiety.model <- model_storage[["Anxiety"]][["Cp_model"]]
+depression.model <- model_storage[["Depression"]][["Cp_model"]]
+insomnia.model <- model_storage[["Insomnia"]][["Cp_model"]]
+ocd.model <- model_storage[["OCD"]][["Cp_model"]]
+
+best.models <- c(anxiety.model, depression.model, insomnia.model, ocd.model)
+
+# Second best model based on average MSE
+anxiety.model.2 <- coef(results[["Anxiety"]][["lasso"]]$best_model)
+depression.model.2 <- coef(results[["Depression"]][["lasso"]]$best_model)
+insomnia.model.2 <- coef(results[["Insomnia"]][["elastic_net"]]$best_model)
+ocd.model.2 <- coef(results[["OCD"]][["lasso"]]$best_model)
+```
+
+```{r}
+# Fitting GAM
+library(mgcv)
+
+
+fav.genre <- colnames(mt.numeric) %>%
+  grep("^Fav_genre", ., value = TRUE)
+streaming.service <- colnames(mt.numeric) %>%
+  grep("^Primary_streaming_service", ., value = TRUE)
+freq <- colnames(mt.numeric) %>%
+  grep("^Frequency", ., value = TRUE)
+
+boolean.var <- c("Composer", "Instrumentalist", "While_working", "Exploratory", "Foreign_languages")
+numeric.var <- c("Age", "Hours_per_day", "BPM")
+
+
+names(mt.numeric) <- make.names(names(mt.numeric))
+
+
+## ANXIETY
+anxiety.vars <- names(coef(anxiety.model))[-1]
+for (var in boolean.var) {
+  anxiety.vars <- gsub(paste0(var, "(Yes|No)"), var, anxiety.vars)
+}
+anxiety.vars <- anxiety.vars[!anxiety.vars %in% response.var]
+anxiety.Nvars <- anxiety.vars[anxiety.vars %in% numeric.var]
+anxiety.Cvars <- anxiety.vars[!anxiety.vars %in% anxiety.Nvars]
+
+anxiety.vars <- make.names(anxiety.vars)
+anxiety.formula <- as.formula(paste("Anxiety ~", paste(ifelse(anxiety.vars %in% anxiety.Nvars, 
+                                                              paste0("s(", anxiety.vars, ")"),
+                                                              anxiety.vars),
+                                                       collapse = "+")))
+
+anxiety.gam <- gam(anxiety.formula, data = mt.numeric)
+summary(anxiety.gam)
+plot(anxiety.gam, pages = 1)
+
+
+## DEPRESSION
+depression.vars <- names(coef(depression.model))[-1]
+for (var in boolean.var) {
+  depression.vars <- gsub(paste0(var, "(Yes|No)"), var, depression.vars)
+}
+depression.vars <- depression.vars[!depression.vars %in% response.var]
+depression.Nvars <- depression.vars[depression.vars %in% numeric.var]
+depression.Cvars <- depression.vars[!depression.vars %in% depression.Nvars]
+
+depression.vars <- make.names(depression.vars)
+depression.formula <- as.formula(paste("Depression ~", paste(ifelse(depression.vars %in% depression.Nvars, 
+                                                              paste0("s(", depression.vars, ")"),
+                                                              depression.vars),
+                                                       collapse = "+")))
+
+depression.gam <- gam(depression.formula, data = mt.numeric)
+summary(depression.gam)
+plot(depression.gam, pages = 1)
+
+## INSOMNIA
+insomnia.vars <- names(coef(insomnia.model))[-1]
+for (var in boolean.var) {
+  insomnia.vars <- gsub(paste0(var, "(Yes|No)"), var, insomnia.vars)
+}
+insomnia.vars <- insomnia.vars[!insomnia.vars %in% response.var]
+insomnia.Nvars <- insomnia.vars[insomnia.vars %in% numeric.var]
+insomnia.Cvars <- insomnia.vars[!insomnia.vars %in% insomnia.Nvars]
+
+insomnia.vars <- make.names(insomnia.vars)
+insomnia.formula <- as.formula(paste("Insomnia ~", paste(ifelse(insomnia.vars %in% insomnia.Nvars, 
+                                                              paste0("s(", insomnia.vars, ")"),
+                                                              insomnia.vars),
+                                                       collapse = "+")))
+
+insomnia.gam <- gam(insomnia.formula, data = mt.numeric)
+summary(insomnia.gam)
+plot(insomnia.gam, pages = 1)
+
+#not smoothing Hours per day since it's approximately linear
+insomnia.Nvars <- insomnia.Nvars[!names(insomnia.Nvars) %in% c("Hours_per_day")]
+insomnia.formula.2 <- as.formula(paste("Insomnia ~", paste(ifelse(insomnia.vars %in% insomnia.Nvars, 
+                                                              paste0("s(", insomnia.vars, ")"),
+                                                              insomnia.vars),
+                                                       collapse = "+")))
+
+insomnia.gam.2 <- gam(insomnia.formula.2, data = mt.numeric)
+
+## OCD
+ocd.vars <- names(coef(ocd.model))[-1]
+for (var in boolean.var) {
+  ocd.vars <- gsub(paste0(var, "(Yes|No)"), var, ocd.vars)
+}
+ocd.vars <- ocd.vars[!ocd.vars %in% response.var]
+ocd.Nvars <- ocd.vars[ocd.vars %in% numeric.var]
+ocd.Cvars <- ocd.vars[!ocd.vars %in% ocd.Nvars]
+
+ocd.vars <- make.names(ocd.vars)
+ocd.formula <- as.formula(paste("OCD ~", paste(ifelse(ocd.vars %in% ocd.Nvars, 
+                                                              paste0("s(", ocd.vars, ")"),
+                                                              ocd.vars),
+                                                       collapse = "+")))
+
+ocd.gam <- gam(ocd.formula, data = mt.numeric)
+summary(ocd.gam)
+plot(ocd.gam, pages = 1)
+
+#not smoothing Age and Hours per day since it's approximately linear
+ocd.Nvars <- ocd.Nvars[!names(ocd.Nvars) %in% c("Hours_per_day", "Age")]
+ocd.formula.2 <- as.formula(paste("OCD ~", paste(ifelse(ocd.vars %in% ocd.Nvars, 
+                                                              paste0("s(", ocd.vars, ")"),
+                                                              ocd.vars),
+                                                       collapse = "+")))
+
+ocd.gam.2 <- gam(ocd.formula.2, data = mt.numeric)
+
+
+sink("best_models.txt")
+summary(anxiety.gam)
+summary(depression.gam)
+summary(insomnia.gam)
+summary(ocd.gam)
+summary(insomnia.gam.2)
+summary(ocd.gam.2)
+sink()
+```
+
+
+
+
+
+

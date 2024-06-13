@@ -1,0 +1,72 @@
+
+Call:
+lm(formula = Cp.formula, data = mt.data)
+
+Coefficients:
+                                               (Intercept)                                                         Age  
+                                                   5.71428                                                    -0.04641  
+                    Primary_streaming_serviceYouTube_Music  Primary_streaming_serviceI_do_not_use_a_streaming_service.  
+                                                  -0.35342                                                    -0.14228  
+                      Primary_streaming_serviceApple_Music            Primary_streaming_serviceOther_streaming_service  
+                                                   1.09477                                                     0.03527  
+                          Primary_streaming_servicePandora                                            Fav_genreCountry  
+                                                   0.52090                                                     0.19090  
+                                              Fav_genreEDM                                               Fav_genreFolk  
+                                                   0.17017                                                     1.36030  
+                                           Fav_genreGospel                                            Fav_genreHip_hop  
+                                                   1.11042                                                     0.92743  
+                                             Fav_genreJazz                                              Fav_genreK_pop  
+                                                   0.87187                                                     1.04860  
+                                            Fav_genreLatin                                               Fav_genreLofi  
+                                                  -0.77640                                                     0.66141  
+                                            Fav_genreMetal                                                Fav_genrePop  
+                                                   0.76776                                                     0.70947  
+                                              Fav_genreR&B                                                Fav_genreRap  
+                                                  -0.07337                                                    -0.19233  
+                                             Fav_genreRock                                   Fav_genreVideo_game_music  
+                                                   1.11084                                                     0.72312  
+                                            ExploratoryYes                                         Foreign_languagesNo  
+                                                  -0.36533                                                    -0.30425  
+                                            Frequency_Folk                                               Frequency_Pop  
+                                                   0.20669                                                     0.17811  
+
+
+Call:
+lm(formula = Cp.formula, data = mt.data)
+
+Coefficients:
+              (Intercept)                        Age           Fav_genreCountry               Fav_genreEDM              Fav_genreFolk  
+                  3.28641                   -0.02310                    0.61480                    0.08927                    0.37103  
+          Fav_genreGospel           Fav_genreHip_hop              Fav_genreJazz             Fav_genreK_pop             Fav_genreLatin  
+                 -0.38362                    0.82708                   -0.30896                   -0.76799                   -0.59589  
+            Fav_genreLofi             Fav_genreMetal               Fav_genrePop               Fav_genreR&B               Fav_genreRap  
+                  1.84094                   -0.41381                   -0.11723                   -0.70131                   -1.11487  
+            Fav_genreRock  Fav_genreVideo_game_music          Frequency_Country             Frequency_Folk            Frequency_Metal  
+                  0.26880                   -0.04265                   -0.41715                    0.18041                    0.32614  
+            Frequency_Rap             Frequency_Rock  
+                  0.35185                    0.30559  
+
+
+Call:
+lm(formula = Cp.formula, data = mt.data)
+
+Coefficients:
+              (Intercept)              Hours_per_day           Fav_genreCountry               Fav_genreEDM              Fav_genreFolk  
+                  1.84883                    0.13046                   -0.05436                    0.05691                    0.55847  
+          Fav_genreGospel           Fav_genreHip_hop              Fav_genreJazz             Fav_genreK_pop             Fav_genreLatin  
+                  2.33078                    0.05008                   -0.03052                   -0.18522                    0.02218  
+            Fav_genreLofi             Fav_genreMetal               Fav_genrePop               Fav_genreR&B               Fav_genreRap  
+                  1.95471                    0.61847                    0.15937                   -0.34831                   -1.32897  
+            Fav_genreRock  Fav_genreVideo_game_music        Frequency_Classical          Frequency_Country              Frequency_EDM  
+                  0.34930                    0.40925                    0.27445                   -0.27039                    0.21241  
+          Frequency_Metal  
+                  0.26911  
+
+
+Call:
+lm(formula = Cp.formula, data = mt.data)
+
+Coefficients:
+        (Intercept)                  Age        Hours_per_day  Foreign_languagesNo    Frequency_Country        Frequency_EDM  
+            2.23701             -0.03253              0.09531              0.33044              0.19070              0.18669  
+

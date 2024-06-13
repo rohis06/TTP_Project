@@ -1,0 +1,232 @@
+
+Family: gaussian 
+Link function: identity 
+
+Formula:
+Anxiety ~ s(Age) + Primary_streaming_serviceYouTube_Music + Primary_streaming_serviceI_do_not_use_a_streaming_service. + 
+    Primary_streaming_serviceApple_Music + Primary_streaming_serviceOther_streaming_service + 
+    Primary_streaming_servicePandora + Fav_genreCountry + Fav_genreEDM + 
+    Fav_genreFolk + Fav_genreGospel + Fav_genreHip_hop + Fav_genreJazz + 
+    Fav_genreK_pop + Fav_genreLatin + Fav_genreLofi + Fav_genreMetal + 
+    Fav_genrePop + Fav_genreR.B + Fav_genreRap + Fav_genreRock + 
+    Fav_genreVideo_game_music + Exploratory + Foreign_languages + 
+    Frequency_Folk + Frequency_Pop
+
+Parametric coefficients:
+                                                           Estimate Std. Error t value          Pr(>|t|)    
+(Intercept)                                                 4.30323    0.56946   7.557 0.000000000000133 ***
+Primary_streaming_serviceYouTube_Music                     -0.28628    0.32243  -0.888            0.3749    
+Primary_streaming_serviceI_do_not_use_a_streaming_service. -0.09412    0.38038  -0.247            0.8046    
+Primary_streaming_serviceApple_Music                        1.09934    0.40855   2.691            0.0073 ** 
+Primary_streaming_serviceOther_streaming_service            0.13386    0.42785   0.313            0.7545    
+Primary_streaming_servicePandora                            0.42836    0.93042   0.460            0.6454    
+Fav_genreCountry                                            0.10048    0.68168   0.147            0.8829    
+Fav_genreEDM                                                0.14011    0.60057   0.233            0.8156    
+Fav_genreFolk                                               1.31649    0.67875   1.940            0.0528 .  
+Fav_genreGospel                                             1.38196    1.23545   1.119            0.2637    
+Fav_genreHip_hop                                            0.90676    0.60656   1.495            0.1354    
+Fav_genreJazz                                               0.88325    0.72490   1.218            0.2235    
+Fav_genreK_pop                                              1.22098    0.72044   1.695            0.0906 .  
+Fav_genreLatin                                             -0.59859    1.95051  -0.307            0.7590    
+Fav_genreLofi                                               0.58025    0.94507   0.614            0.5394    
+Fav_genreMetal                                              0.65310    0.49222   1.327            0.1850    
+Fav_genrePop                                                0.78068    0.48271   1.617            0.1063    
+Fav_genreR.B                                                0.08005    0.60543   0.132            0.8949    
+Fav_genreRap                                               -0.13782    0.70574  -0.195            0.8452    
+Fav_genreRock                                               1.09561    0.44037   2.488            0.0131 *  
+Fav_genreVideo_game_music                                   0.68933    0.56927   1.211            0.2264    
+Exploratory                                                -0.31024    0.24649  -1.259            0.2086    
+Foreign_languages                                           0.24260    0.21858   1.110            0.2674    
+Frequency_Folk                                              0.18018    0.11723   1.537            0.1247    
+Frequency_Pop                                               0.16692    0.13032   1.281            0.2007    
+---
+Signif. codes:  0 ‘***’ 0.001 ‘**’ 0.01 ‘*’ 0.05 ‘.’ 0.1 ‘ ’ 1
+
+Approximate significance of smooth terms:
+         edf Ref.df     F    p-value    
+s(Age) 5.601  6.724 5.332 0.00000933 ***
+---
+Signif. codes:  0 ‘***’ 0.001 ‘**’ 0.01 ‘*’ 0.05 ‘.’ 0.1 ‘ ’ 1
+
+R-sq.(adj) =  0.0704   Deviance explained = 10.9%
+GCV = 7.5414  Scale est. = 7.219     n = 716
+
+Family: gaussian 
+Link function: identity 
+
+Formula:
+Depression ~ s(Age) + Fav_genreCountry + Fav_genreEDM + Fav_genreFolk + 
+    Fav_genreGospel + Fav_genreHip_hop + Fav_genreJazz + Fav_genreK_pop + 
+    Fav_genreLatin + Fav_genreLofi + Fav_genreMetal + Fav_genrePop + 
+    Fav_genreR.B + Fav_genreRap + Fav_genreRock + Fav_genreVideo_game_music + 
+    Frequency_Country + Frequency_Folk + Frequency_Metal + Frequency_Rap + 
+    Frequency_Rock
+
+Parametric coefficients:
+                          Estimate Std. Error t value     Pr(>|t|)    
+(Intercept)                3.09480    0.55587   5.567 0.0000000371 ***
+Fav_genreCountry           0.43008    0.78987   0.544      0.58628    
+Fav_genreEDM              -0.09907    0.65809  -0.151      0.88039    
+Fav_genreFolk              0.26421    0.72742   0.363      0.71655    
+Fav_genreGospel           -0.22035    1.30149  -0.169      0.86561    
+Fav_genreHip_hop           0.63538    0.70404   0.902      0.36711    
+Fav_genreJazz             -0.43168    0.77368  -0.558      0.57706    
+Fav_genreK_pop            -0.69493    0.76645  -0.907      0.36489    
+Fav_genreLatin            -0.41451    2.08745  -0.199      0.84266    
+Fav_genreLofi              1.63702    1.00914   1.622      0.10522    
+Fav_genreMetal            -0.62141    0.59316  -1.048      0.29518    
+Fav_genrePop              -0.18979    0.51081  -0.372      0.71034    
+Fav_genreR.B              -0.76779    0.67399  -1.139      0.25502    
+Fav_genreRap              -1.10181    0.80202  -1.374      0.16995    
+Fav_genreRock              0.23684    0.50812   0.466      0.64128    
+Fav_genreVideo_game_music -0.15915    0.60481  -0.263      0.79252    
+Frequency_Country         -0.41833    0.14371  -2.911      0.00372 ** 
+Frequency_Folk             0.13180    0.13088   1.007      0.31427    
+Frequency_Metal            0.32033    0.14133   2.266      0.02373 *  
+Frequency_Rap              0.36776    0.12883   2.855      0.00444 ** 
+Frequency_Rock             0.23135    0.14496   1.596      0.11096    
+---
+Signif. codes:  0 ‘***’ 0.001 ‘**’ 0.01 ‘*’ 0.05 ‘.’ 0.1 ‘ ’ 1
+
+Approximate significance of smooth terms:
+         edf Ref.df     F p-value   
+s(Age) 5.477    6.6 3.649 0.00154 **
+---
+Signif. codes:  0 ‘***’ 0.001 ‘**’ 0.01 ‘*’ 0.05 ‘.’ 0.1 ‘ ’ 1
+
+R-sq.(adj) =  0.0965   Deviance explained = 12.9%
+GCV = 8.5612  Scale est. = 8.2447    n = 716
+
+Family: gaussian 
+Link function: identity 
+
+Formula:
+Insomnia ~ s(Hours_per_day) + Fav_genreCountry + Fav_genreEDM + 
+    Fav_genreFolk + Fav_genreGospel + Fav_genreHip_hop + Fav_genreJazz + 
+    Fav_genreK_pop + Fav_genreLatin + Fav_genreLofi + Fav_genreMetal + 
+    Fav_genrePop + Fav_genreR.B + Fav_genreRap + Fav_genreRock + 
+    Fav_genreVideo_game_music + Frequency_Classical + Frequency_Country + 
+    Frequency_EDM + Frequency_Metal
+
+Parametric coefficients:
+                          Estimate Std. Error t value Pr(>|t|)   
+(Intercept)                2.32329    0.73215   3.173  0.00157 **
+Fav_genreCountry          -0.05334    0.88004  -0.061  0.95168   
+Fav_genreEDM               0.06039    0.76793   0.079  0.93735   
+Fav_genreFolk              0.55707    0.75101   0.742  0.45848   
+Fav_genreGospel            2.33748    1.31050   1.784  0.07492 . 
+Fav_genreHip_hop           0.04743    0.71287   0.067  0.94698   
+Fav_genreJazz             -0.03387    0.82354  -0.041  0.96721   
+Fav_genreK_pop            -0.18836    0.81255  -0.232  0.81676   
+Fav_genreLatin             0.01687    2.17936   0.008  0.99382   
+Fav_genreLofi              1.94782    1.06121   1.835  0.06686 . 
+Fav_genreMetal             0.61635    0.66384   0.928  0.35349   
+Fav_genrePop               0.16071    0.56544   0.284  0.77632   
+Fav_genreR.B              -0.35270    0.69692  -0.506  0.61296   
+Fav_genreRap              -1.31517    0.80986  -1.624  0.10484   
+Fav_genreRock              0.35068    0.54994   0.638  0.52390   
+Fav_genreVideo_game_music  0.41323    0.65971   0.626  0.53127   
+Frequency_Classical        0.27384    0.13214   2.072  0.03860 * 
+Frequency_Country         -0.27215    0.14327  -1.900  0.05791 . 
+Frequency_EDM              0.21091    0.12350   1.708  0.08812 . 
+Frequency_Metal            0.26856    0.13764   1.951  0.05144 . 
+---
+Signif. codes:  0 ‘***’ 0.001 ‘**’ 0.01 ‘*’ 0.05 ‘.’ 0.1 ‘ ’ 1
+
+Approximate significance of smooth terms:
+                   edf Ref.df    F p-value   
+s(Hours_per_day) 1.179  1.336 7.78 0.00206 **
+---
+Signif. codes:  0 ‘***’ 0.001 ‘**’ 0.01 ‘*’ 0.05 ‘.’ 0.1 ‘ ’ 1
+
+R-sq.(adj) =  0.0482   Deviance explained = 7.51%
+GCV = 9.3214  Scale est. = 9.0457    n = 716
+
+Family: gaussian 
+Link function: identity 
+
+Formula:
+OCD ~ s(Age) + s(Hours_per_day) + Foreign_languages + Frequency_Country + 
+    Frequency_EDM
+
+Parametric coefficients:
+                  Estimate Std. Error t value       Pr(>|t|)    
+(Intercept)         2.1003     0.3257   6.449 0.000000000209 ***
+Foreign_languages  -0.3363     0.2154  -1.561         0.1189    
+Frequency_Country   0.1895     0.1145   1.655         0.0984 .  
+Frequency_EDM       0.1833     0.1023   1.792         0.0735 .  
+---
+Signif. codes:  0 ‘***’ 0.001 ‘**’ 0.01 ‘*’ 0.05 ‘.’ 0.1 ‘ ’ 1
+
+Approximate significance of smooth terms:
+                   edf Ref.df     F p-value   
+s(Age)           1.294  1.534 9.813 0.00118 **
+s(Hours_per_day) 1.000  1.000 7.585 0.00604 **
+---
+Signif. codes:  0 ‘***’ 0.001 ‘**’ 0.01 ‘*’ 0.05 ‘.’ 0.1 ‘ ’ 1
+
+R-sq.(adj) =  0.0338   Deviance explained =  4.1%
+GCV = 7.9057  Scale est. = 7.8362    n = 716
+
+Family: gaussian 
+Link function: identity 
+
+Formula:
+Insomnia ~ Hours_per_day + Fav_genreCountry + Fav_genreEDM + 
+    Fav_genreFolk + Fav_genreGospel + Fav_genreHip_hop + Fav_genreJazz + 
+    Fav_genreK_pop + Fav_genreLatin + Fav_genreLofi + Fav_genreMetal + 
+    Fav_genrePop + Fav_genreR.B + Fav_genreRap + Fav_genreRock + 
+    Fav_genreVideo_game_music + Frequency_Classical + Frequency_Country + 
+    Frequency_EDM + Frequency_Metal
+
+Parametric coefficients:
+                          Estimate Std. Error t value Pr(>|t|)    
+(Intercept)                1.84883    0.73102   2.529 0.011656 *  
+Hours_per_day              0.13046    0.03890   3.354 0.000841 ***
+Fav_genreCountry          -0.05436    0.88016  -0.062 0.950771    
+Fav_genreEDM               0.05691    0.76794   0.074 0.940942    
+Fav_genreFolk              0.55847    0.75111   0.744 0.457410    
+Fav_genreGospel            2.33078    1.31057   1.778 0.075769 .  
+Fav_genreHip_hop           0.05008    0.71294   0.070 0.944018    
+Fav_genreJazz             -0.03052    0.82358  -0.037 0.970445    
+Fav_genreK_pop            -0.18522    0.81264  -0.228 0.819771    
+Fav_genreLatin             0.02218    2.17947   0.010 0.991884    
+Fav_genreLofi              1.95471    1.06125   1.842 0.065916 .  
+Fav_genreMetal             0.61847    0.66391   0.932 0.351892    
+Fav_genrePop               0.15937    0.56550   0.282 0.778162    
+Fav_genreR.B              -0.34831    0.69696  -0.500 0.617402    
+Fav_genreRap              -1.32897    0.80924  -1.642 0.100994    
+Fav_genreRock              0.34930    0.55000   0.635 0.525578    
+Fav_genreVideo_game_music  0.40925    0.65972   0.620 0.535235    
+Frequency_Classical        0.27445    0.13215   2.077 0.038193 *  
+Frequency_Country         -0.27039    0.14324  -1.888 0.059483 .  
+Frequency_EDM              0.21241    0.12347   1.720 0.085812 .  
+Frequency_Metal            0.26911    0.13765   1.955 0.050979 .  
+---
+Signif. codes:  0 ‘***’ 0.001 ‘**’ 0.01 ‘*’ 0.05 ‘.’ 0.1 ‘ ’ 1
+
+
+R-sq.(adj) =  0.0479   Deviance explained = 7.46%
+GCV = 9.3218  Scale est. = 9.0484    n = 716
+
+Family: gaussian 
+Link function: identity 
+
+Formula:
+OCD ~ Age + Hours_per_day + Foreign_languages + Frequency_Country + 
+    Frequency_EDM
+
+Parametric coefficients:
+                  Estimate Std. Error t value       Pr(>|t|)    
+(Intercept)        2.56745    0.40635   6.318 0.000000000466 ***
+Age               -0.03253    0.00892  -3.647       0.000285 ***
+Hours_per_day      0.09531    0.03511   2.714       0.006799 ** 
+Foreign_languages -0.33044    0.21523  -1.535       0.125153    
+Frequency_Country  0.19070    0.11453   1.665       0.096335 .  
+Frequency_EDM      0.18669    0.10216   1.827       0.068048 .  
+---
+Signif. codes:  0 ‘***’ 0.001 ‘**’ 0.01 ‘*’ 0.05 ‘.’ 0.1 ‘ ’ 1
+
+
+R-sq.(adj) =  0.0332   Deviance explained =    4%
+GCV =  7.907  Scale est. = 7.8407    n = 716
