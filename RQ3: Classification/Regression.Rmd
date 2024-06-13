@@ -1,0 +1,89 @@
+---
+title: "Regression"
+output: pdf_document
+date: "2024-06-03"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r echo=TRUE}
+library(glmnet)
+library(caret)
+
+# Load the data
+data_reg <- read.csv("mt_data_feature_selection.csv")
+
+data$Music_effects_Improve <- factor(data$Music_effects_Improve)
+
+# Generate some example data
+set.seed(12345)
+X <- model.matrix(Music_effects_Improve~., data=data_reg)[,-1]
+y <- data_reg[, which(names(data_reg) == "Music_effects_Improve")]
+
+# Perform ridge regression with cross-validation
+ridge_cv <- cv.glmnet(x=X, y=y, alpha = 0, family="binomial") 
+best_lambda_ridge <- ridge_cv$lambda.min
+
+# Print the results
+cat("Ridge Regression Coefficients:\n")
+ridge_auto <- glmnet(x=X, y=y, alpha=0, lambda = best_lambda_ridge, family="binomial")
+print(ridge_auto$beta)
+```
+
+```{r echo=TRUE}
+# Perform lasso regression with cross-validation
+lasso_cv <- cv.glmnet(x=X, y=y, alpha = 1, family="binomial")
+best_lambda_lasso <- lasso_cv$lambda.min
+
+cat("\nLasso Regression Coefficients:\n")
+lasso_auto <- glmnet(x=X, y=y, alpha=1, lambda = best_lambda_lasso, family="binomial")
+print(lasso_auto$beta)
+```
+
+```{r echo=TRUE}
+# Perform elastic net regression with cross-validation
+# Set up the training procedure
+train.control <- trainControl(method = 'repeatedcv',
+                               number = 5,
+                               repeats = 5,
+                               search = 'random',
+                               verboseIter = FALSE)
+
+
+# Run the training procedure to determine the two parameters of the elastic net (alpha and
+elastic_net_best <- train(Music_effects_Improve ~ .,
+  data = data_reg,
+  method = 'glmnet',
+  preProcess = c('center', 'scale'), tuneLength = 25, trControl = train.control)
+
+
+optimal_alpha_elastic_net <- elastic_net_best$bestTune$alpha
+best_lambda_elastic_net <- elastic_net_best$bestTune$lambda 
+# Perform cross-validation with the optimal alpha value
+elastic_net_cv <- cv.glmnet(x = X,
+                            y = y,
+                            alpha = optimal_alpha_elastic_net, family = "binomial")
+
+
+cat("\nElastic Net Regression Coefficients:\n")
+elastic_net_auto <- glmnet(x=X, y=y,
+  alpha=elastic_net_best$bestTune$alpha,
+  lambda = elastic_net_best$bestTune$lambda, family = "binomial")
+print(elastic_net_auto$beta)
+```
+
+```{r echo=TRUE}
+# Plot coefficients for Ridge Regression
+plot(ridge_cv$glmnet.fit, xvar = 'lambda', label = TRUE)
+title("Ridge Regression Coefficients vs. Lambda")
+
+# Plot coefficients for Lasso Regression
+plot(lasso_cv$glmnet.fit, xvar = 'lambda', label = TRUE)
+title("Lasso Regression Coefficients vs. Lambda")
+
+# Plot the coefficient paths for elastic net regression
+plot(elastic_net_cv$glmnet.fit, xvar = "lambda", label = TRUE)
+title("Elastic net Regression Coefficients vs. Lambda")
+```

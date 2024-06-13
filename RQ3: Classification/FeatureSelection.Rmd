@@ -1,0 +1,65 @@
+---
+title: "FeatureSelection"
+output: pdf_document
+date: "2024-06-02"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Feature selection
+
+```{r echo=TRUE}
+library(MASS)
+library(caTools)
+
+# Load the data
+data <- read.csv("mt_data_feature_selection.csv")
+
+data$Music_effects_Improve <- factor(data$Music_effects_Improve)
+
+# Split the data
+set.seed(12345)
+split <- sample.split(data$Music_effects_Improve, SplitRatio = 0.8)
+train_data <- subset(data, split == TRUE)
+test_data <- subset(data, split == FALSE)
+
+# Null and full models
+null_model <- glm(Music_effects_Improve ~ 1, data = train_data, family = binomial)
+full_model <- glm(Music_effects_Improve ~ ., data = train_data, family = binomial)
+
+# Stepwise forward selection
+stepwise_model_AIC <- stepAIC(null_model, 
+                          scope = list(lower = null_model, upper = full_model), 
+                          direction = "forward", 
+                          trace = FALSE)
+
+# Review the selected model
+summary(stepwise_model_AIC)
+```
+
+```{r echo=TRUE}
+# Number of observations
+n <- nrow(train_data)
+
+# Stepwise forward selection based on BIC
+stepwise_model_BIC <- step(null_model, 
+                           scope = list(lower = null_model, upper = full_model), 
+                           direction = "forward", 
+                           trace = FALSE, 
+                           k = log(n))
+
+# Review the selected model
+summary(stepwise_model_BIC)
+```
+
+
+Adj. R2 is not used since it's primarily used for linear regression and not logistic regression models.
+
+```{r echo=TRUE}
+```
+
+
+
+
